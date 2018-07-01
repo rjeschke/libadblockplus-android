@@ -17,14 +17,15 @@
 
 package org.adblockplus.libadblockplus.tests;
 
+import android.os.SystemClock;
+
 import org.adblockplus.libadblockplus.AppInfo;
+import org.adblockplus.libadblockplus.BaseFilterEngineTest;
 import org.adblockplus.libadblockplus.EventCallback;
 import org.adblockplus.libadblockplus.HeaderEntry;
 import org.adblockplus.libadblockplus.JsValue;
-import org.adblockplus.libadblockplus.LazyLogSystem;
-import org.adblockplus.libadblockplus.LazyWebRequest;
-import org.adblockplus.libadblockplus.Platform;
 import org.adblockplus.libadblockplus.ServerResponse;
+import org.adblockplus.libadblockplus.ThrowingWebRequest;
 import org.adblockplus.libadblockplus.UpdateCheckDoneCallback;
 
 import org.junit.Test;
@@ -35,7 +36,7 @@ public class UpdateCheckTest extends BaseFilterEngineTest
 {
   protected String previousRequestUrl;
 
-  public class TestWebRequest extends LazyWebRequest
+  public class TestWebRequest extends ThrowingWebRequest
   {
     public ServerResponse response = new ServerResponse();
 
@@ -52,7 +53,6 @@ public class UpdateCheckTest extends BaseFilterEngineTest
     }
   }
 
-  protected AppInfo appInfo;
   protected TestWebRequest webRequest;
 
   protected boolean eventCallbackCalled;
@@ -80,41 +80,43 @@ public class UpdateCheckTest extends BaseFilterEngineTest
     }
   };
 
-  public void reset() throws InterruptedException
+  public void reset()
   {
-    disposeFilterEngine();
-    if (platform != null)
-    {
-      platform.dispose();
-    }
-    platform = new Platform(new LazyLogSystem(), webRequest,
-        getContext().getFilesDir().getAbsolutePath());
-    platform.setUpJsEngine(appInfo);
-    platform.getJsEngine().setEventCallback("updateAvailable", eventCallback);
-    filterEngine = platform.getFilterEngine();
+    disposeEngines();
+    setupJsEngine();
+    jsEngine.setEventCallback("updateAvailable", eventCallback);
+    setupFilterEngine();
   }
 
   @Override
   protected void setUp() throws Exception
   {
-    appInfo = AppInfo.builder().build();
     webRequest = new TestWebRequest();
+    setWebRequest(webRequest);
     eventCallbackCalled = false;
     updateCallbackCalled = false;
-    reset();
+    super.setUp();
   }
 
   public void forceUpdateCheck()
   {
     filterEngine.forceUpdateCheck(updateCallback);
+    for (int i = 0; i < UPDATE_SUBSCRIPTIONS_WAIT_CHUNKS; i++)
+    {
+      if (eventCallbackCalled || updateCallbackCalled)
+      {
+        break;
+      }
+      SystemClock.sleep(UPDATE_SUBSCRIPTIONS_WAIT_DELAY_MS / UPDATE_SUBSCRIPTIONS_WAIT_CHUNKS);
+    }
   }
 
   @Test
-  public void testRequestFailure() throws InterruptedException
+  public void testRequestFailure()
   {
     webRequest.response.setStatus(ServerResponse.NsStatus.ERROR_FAILURE);
 
-    appInfo = AppInfo
+    AppInfo appInfo = AppInfo
       .builder()
       .setName("1")
       .setVersion("3")
@@ -122,11 +124,10 @@ public class UpdateCheckTest extends BaseFilterEngineTest
       .setApplicationVersion("2")
       .setDevelopmentBuild(false)
       .build();
+    setAppInfo(appInfo);
 
     reset();
     forceUpdateCheck();
-
-    Thread.sleep(100);
 
     assertFalse(eventCallbackCalled);
     assertTrue(updateCallbackCalled);
@@ -153,14 +154,14 @@ public class UpdateCheckTest extends BaseFilterEngineTest
   }
 
   @Test
-  public void testApplicationUpdateAvailable() throws InterruptedException
+  public void testApplicationUpdateAvailable()
   {
     webRequest.response.setStatus(ServerResponse.NsStatus.OK);
     webRequest.response.setResponseStatus(200);
     webRequest.response.setResponse(
       "{\"1/4\": {\"version\":\"3.1\",\"url\":\"https://foo.bar/\"}}");
 
-    appInfo = AppInfo
+    AppInfo appInfo = AppInfo
       .builder()
       .setName("1")
       .setVersion("3")
@@ -168,11 +169,10 @@ public class UpdateCheckTest extends BaseFilterEngineTest
       .setApplicationVersion("2")
       .setDevelopmentBuild(true)
       .build();
+    setAppInfo(appInfo);
 
     reset();
     forceUpdateCheck();
-
-    Thread.sleep(1000);
 
     assertTrue(eventCallbackCalled);
     assertNotNull(eventCallbackParams);
@@ -183,14 +183,14 @@ public class UpdateCheckTest extends BaseFilterEngineTest
   }
 
   @Test
-  public void testWrongApplication() throws InterruptedException
+  public void testWrongApplication()
   {
     webRequest.response.setStatus(ServerResponse.NsStatus.OK);
     webRequest.response.setResponseStatus(200);
     webRequest.response.setResponse(
       "{\"1/3\": {\"version\":\"3.1\",\"url\":\"https://foo.bar/\"}}");
 
-    appInfo = AppInfo
+    AppInfo appInfo = AppInfo
       .builder()
       .setName("1")
       .setVersion("3")
@@ -198,11 +198,10 @@ public class UpdateCheckTest extends BaseFilterEngineTest
       .setApplicationVersion("2")
       .setDevelopmentBuild(true)
       .build();
+    setAppInfo(appInfo);
 
     reset();
     forceUpdateCheck();
-
-    Thread.sleep(1000);
 
     assertFalse(eventCallbackCalled);
     assertTrue(updateCallbackCalled);
@@ -210,14 +209,14 @@ public class UpdateCheckTest extends BaseFilterEngineTest
   }
 
   @Test
-  public void testWrongVersion() throws InterruptedException
+  public void testWrongVersion()
   {
     webRequest.response.setStatus(ServerResponse.NsStatus.OK);
     webRequest.response.setResponseStatus(200);
     webRequest.response.setResponse(
       "{\"1\": {\"version\":\"3\",\"url\":\"https://foo.bar/\"}}");
 
-    appInfo = AppInfo
+    AppInfo appInfo = AppInfo
       .builder()
       .setName("1")
       .setVersion("3")
@@ -225,11 +224,10 @@ public class UpdateCheckTest extends BaseFilterEngineTest
       .setApplicationVersion("2")
       .setDevelopmentBuild(true)
       .build();
+    setAppInfo(appInfo);
 
     reset();
     forceUpdateCheck();
-
-    Thread.sleep(1000);
 
     assertFalse(eventCallbackCalled);
     assertTrue(updateCallbackCalled);
@@ -237,14 +235,14 @@ public class UpdateCheckTest extends BaseFilterEngineTest
   }
 
   @Test
-  public void testWrongURL() throws InterruptedException
+  public void testWrongURL()
   {
     webRequest.response.setStatus(ServerResponse.NsStatus.OK);
     webRequest.response.setResponseStatus(200);
     webRequest.response.setResponse(
       "{\"1\": {\"version\":\"3.1\",\"url\":\"http://insecure/\"}}");
 
-    appInfo = AppInfo
+    AppInfo appInfo = AppInfo
       .builder()
       .setName("1")
       .setVersion("3")
@@ -252,11 +250,10 @@ public class UpdateCheckTest extends BaseFilterEngineTest
       .setApplicationVersion("2")
       .setDevelopmentBuild(true)
       .build();
+    setAppInfo(appInfo);
 
     reset();
     forceUpdateCheck();
-
-    Thread.sleep(1000);
 
     assertFalse(eventCallbackCalled);
     assertTrue(updateCallbackCalled);

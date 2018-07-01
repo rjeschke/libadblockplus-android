@@ -18,8 +18,8 @@
 package org.adblockplus.libadblockplus.tests;
 
 import org.adblockplus.libadblockplus.AppInfo;
-import org.adblockplus.libadblockplus.JsEngine;
 
+import org.adblockplus.libadblockplus.BasePlatformTest;
 import org.junit.Test;
 
 public class AppInfoJsObjectTest extends BasePlatformTest
@@ -27,7 +27,7 @@ public class AppInfoJsObjectTest extends BasePlatformTest
   @Test
   public void testAllProperties()
   {
-    AppInfo appInfo = AppInfo
+    setAppInfo(AppInfo
       .builder()
       .setVersion("1")
       .setName("3")
@@ -35,10 +35,9 @@ public class AppInfoJsObjectTest extends BasePlatformTest
       .setApplicationVersion("5")
       .setLocale("2")
       .setDevelopmentBuild(true)
-      .build();
+      .build());
 
-    platform.setUpJsEngine(appInfo);
-    JsEngine jsEngine = platform.getJsEngine();
+    setupJsEngine();
     assertEquals("1", jsEngine.evaluate("_appInfo.version").asString());
     assertEquals("3", jsEngine.evaluate("_appInfo.name").asString());
     assertEquals("4", jsEngine.evaluate("_appInfo.application").asString());
@@ -50,11 +49,10 @@ public class AppInfoJsObjectTest extends BasePlatformTest
   @Test
   public void testDefaultPropertyValues()
   {
-    AppInfo appInfo = AppInfo
+    setAppInfo(AppInfo
       .builder()
-      .build();
-    platform.setUpJsEngine(appInfo);
-    JsEngine jsEngine = platform.getJsEngine();
+      .build());
+    setupJsEngine();
     assertEquals("1.0", jsEngine.evaluate("_appInfo.version").asString());
     assertEquals("libadblockplus-android", jsEngine.evaluate("_appInfo.name").asString());
     assertEquals("android", jsEngine.evaluate("_appInfo.application").asString());

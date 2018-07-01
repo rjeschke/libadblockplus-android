@@ -17,24 +17,21 @@
 
 package org.adblockplus.libadblockplus.tests;
 
-import org.adblockplus.libadblockplus.LazyWebRequest;
+import android.os.SystemClock;
+
+import org.adblockplus.libadblockplus.BaseFilterEngineTest;
 import org.adblockplus.libadblockplus.Notification;
 import org.adblockplus.libadblockplus.ShowNotificationCallback;
-import org.adblockplus.libadblockplus.WebRequest;
 
 import org.junit.Test;
 
 public class NotificationTest extends BaseFilterEngineTest
 {
-  @Override
-  protected WebRequest createWebRequest()
-  {
-    return new LazyWebRequest();
-  }
+  private static final int NOTIFICATION_WAIT_DELAY_MS = 1000;
 
   protected void addNotification(String notification)
   {
-    platform.getJsEngine().evaluate(
+    jsEngine.evaluate(
       "(function()\n" +
       "{\n" +
       "require('notification').Notification.addNotification(" + notification + ");\n" +
@@ -57,7 +54,7 @@ public class NotificationTest extends BaseFilterEngineTest
     }
   }
 
-  protected Notification peekNotification(String url) throws InterruptedException
+  protected Notification peekNotification(String url)
   {
     LocalShowNotificationCallback callback = new LocalShowNotificationCallback();
     filterEngine.setShowNotificationCallback(callback);
@@ -73,7 +70,7 @@ public class NotificationTest extends BaseFilterEngineTest
   }
 
   @Test
-  public void testAddNotification() throws InterruptedException
+  public void testAddNotification()
   {
     addNotification(
       "{\n" +
@@ -89,7 +86,7 @@ public class NotificationTest extends BaseFilterEngineTest
   }
 
   @Test
-  public void testFilterByUrl() throws InterruptedException
+  public void testFilterByUrl()
   {
     addNotification("{ id:'no-filter', type:'critical' }");
     addNotification("{ id:'www.com', type:'information', urlFilters:['||www.com$document'] }");
@@ -109,7 +106,7 @@ public class NotificationTest extends BaseFilterEngineTest
   }
 
   @Test
-  public void testMarkAsShown() throws InterruptedException
+  public void testMarkAsShown()
   {
     addNotification("{ id: 'id', type: 'information' }");
     assertNotNull(peekNotification(""));
@@ -117,7 +114,7 @@ public class NotificationTest extends BaseFilterEngineTest
     Notification notification = peekNotification("");
     assertNotNull(notification);
 
-    Thread.sleep(1000);
+    SystemClock.sleep(NOTIFICATION_WAIT_DELAY_MS);
     notification.markAsShown();
 
     assertNull(peekNotification(""));

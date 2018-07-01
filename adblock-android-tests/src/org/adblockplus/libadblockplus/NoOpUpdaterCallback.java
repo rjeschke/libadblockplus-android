@@ -19,8 +19,16 @@ package org.adblockplus.libadblockplus;
 
 public class NoOpUpdaterCallback extends UpdateCheckDoneCallback
 {
+  private volatile int updateCount;
+
+  public int getUpdateCount()
+  {
+    return updateCount;
+  }
+
   @Override
   public void updateCheckDoneCallback(String error)
   {
+    updateCount++;
   }
 }

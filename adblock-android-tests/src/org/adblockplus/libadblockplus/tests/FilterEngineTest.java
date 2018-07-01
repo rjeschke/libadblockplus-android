@@ -17,6 +17,9 @@
 
 package org.adblockplus.libadblockplus.tests;
 
+import android.util.Log;
+
+import org.adblockplus.libadblockplus.BaseFilterEngineTest;
 import org.adblockplus.libadblockplus.Filter;
 import org.adblockplus.libadblockplus.FilterEngine;
 import org.adblockplus.libadblockplus.MockFilterChangeCallback;
@@ -28,6 +31,8 @@ import java.util.List;
 
 public class FilterEngineTest extends BaseFilterEngineTest
 {
+  private static final String TAG = FilterEngineTest.class.getSimpleName();
+
   @Test
   public void testFilterCreation()
   {
@@ -48,7 +53,12 @@ public class FilterEngineTest extends BaseFilterEngineTest
   {
     while (filterEngine.getListedFilters().size() > 0)
     {
+      int prev =  filterEngine.getListedFilters().size();
       filterEngine.getListedFilters().get(0).removeFromList();
+      if (prev == filterEngine.getListedFilters().size())
+      {
+        Log.e(TAG, "Failed to clear listed filters.");
+      }
     }
 
     assertEquals(0, filterEngine.getListedFilters().size());
@@ -76,11 +86,53 @@ public class FilterEngineTest extends BaseFilterEngineTest
   }
 
   @Test
+  public void testAddedSubscriptionIsEnabled()
+  {
+    Subscription subscription = filterEngine.getSubscription("foo");
+    assertFalse(subscription.isDisabled());
+  }
+
+  @Test
+  public void testDisablingSubscriptionDisablesItAndFiresEvent()
+  {
+    Subscription subscription = filterEngine.getSubscription("foo");
+    MockFilterChangeCallback callback = new MockFilterChangeCallback("subscription.disabled", "url","foo");
+    filterEngine.setFilterChangeCallback(callback);
+    assertFalse(subscription.isDisabled());
+    subscription.setDisabled(true);
+    assertEquals(1, callback.getTimesCalled());
+    assertTrue(subscription.isDisabled());
+    filterEngine.removeFilterChangeCallback();
+  }
+
+  @Test
+  public void testEnablingSubscriptionEnablesItAndFiresEvent()
+  {
+    Subscription subscription = filterEngine.getSubscription("foo");
+    assertFalse(subscription.isDisabled());
+    subscription.setDisabled(true);
+    assertTrue(subscription.isDisabled());
+
+    MockFilterChangeCallback callback = new MockFilterChangeCallback("subscription.disabled", "url", "foo");
+    filterEngine.setFilterChangeCallback(callback);
+    subscription.setDisabled(false);
+    assertEquals(1, callback.getTimesCalled());
+    assertFalse(subscription.isDisabled());
+    filterEngine.removeFilterChangeCallback();
+  }
+
+  @Test
   public void testAddRemoveSubscriptions()
   {
     while (filterEngine.getListedSubscriptions().size() > 0)
     {
+      int prev = filterEngine.getListedSubscriptions().size();
       filterEngine.getListedSubscriptions().get(0).removeFromList();
+      if (prev == filterEngine.getListedSubscriptions().size())
+      {
+        Log.e(TAG, "Failed to clear listed subscriptions.");
+        break;
+      }
     }
 
     assertEquals(0, filterEngine.getListedSubscriptions().size());
@@ -324,23 +376,21 @@ public class FilterEngineTest extends BaseFilterEngineTest
   }
 
   @Test
-  public void testFirstRunFlag()
-  {
-    assertFalse(filterEngine.isFirstRun());
-  }
-
-  @Test
   public void testSetRemoveFilterChangeCallback()
   {
-    MockFilterChangeCallback mockFilterChangeCallback = new MockFilterChangeCallback(0);
+    MockFilterChangeCallback callback = new MockFilterChangeCallback("subscription.added", "defaults", "blocking");
 
-    filterEngine.setFilterChangeCallback(mockFilterChangeCallback);
-    filterEngine.getFilter("foo").addToList();
-    assertEquals(1, mockFilterChangeCallback.getTimesCalled());
+    filterEngine.setFilterChangeCallback(callback);
+    Filter filter = filterEngine.getFilter("foo");
+    assertFalse(filter.isListed());
+    filter.addToList();
+    assertEquals(1, callback.getTimesCalled());
 
     filterEngine.removeFilterChangeCallback();
-    filterEngine.getFilter("foo").removeFromList();
-    assertEquals(1, mockFilterChangeCallback.getTimesCalled());
+    callback.clearCheckValues();
+    filter.removeFromList();
+    assertFalse(filter.isListed());
+    assertEquals(1, callback.getTimesCalled());
   }
 
   @Test

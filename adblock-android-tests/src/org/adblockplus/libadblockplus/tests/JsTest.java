@@ -18,6 +18,7 @@
 package org.adblockplus.libadblockplus.tests;
 
 import org.adblockplus.libadblockplus.AdblockPlusException;
+import org.adblockplus.libadblockplus.BaseJsEngineTest;
 import org.adblockplus.libadblockplus.JsValue;
 
 import org.junit.Test;

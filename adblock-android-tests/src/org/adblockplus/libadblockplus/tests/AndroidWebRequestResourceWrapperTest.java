@@ -17,13 +17,10 @@
 
 package org.adblockplus.libadblockplus.tests;
 
-import android.os.SystemClock;
-
+import org.adblockplus.libadblockplus.BaseFilterEngineTest;
 import org.adblockplus.libadblockplus.HeaderEntry;
 import org.adblockplus.libadblockplus.ServerResponse;
-import org.adblockplus.libadblockplus.Subscription;
-import org.adblockplus.libadblockplus.WebRequest;
-import org.adblockplus.libadblockplus.android.AndroidWebRequest;
+import org.adblockplus.libadblockplus.ThrowingWebRequest;
 import org.adblockplus.libadblockplus.android.AndroidWebRequestResourceWrapper;
 import org.adblockplus.libadblockplus.android.Utils;
 import org.adblockplus.libadblockplus.tests.test.R;
@@ -39,9 +36,7 @@ import java.util.Set;
 
 public class AndroidWebRequestResourceWrapperTest extends BaseFilterEngineTest
 {
-  private static final int UPDATE_SUBSCRIPTIONS_WAIT_DELAY_MS = 5 * 1000; // 5s
-
-  private static final class TestRequest extends AndroidWebRequest
+  private static final class TestRequest extends ThrowingWebRequest
   {
     private List<String> urls = new LinkedList<String>();
 
@@ -114,28 +109,9 @@ public class AndroidWebRequestResourceWrapperTest extends BaseFilterEngineTest
     wrapperListener = new TestWrapperListener();
     wrapper.setListener(wrapperListener);
 
+    setWebRequest(wrapper);
+
     super.setUp();
-  }
-
-  @Override
-  protected WebRequest createWebRequest()
-  {
-    return wrapper;
-  }
-
-  private void updateSubscriptions()
-  {
-    for (final Subscription s : this.filterEngine.getListedSubscriptions())
-    {
-      try
-      {
-        s.updateFilters();
-      }
-      finally
-      {
-        s.dispose();
-      }
-    }
   }
 
   private List<String> getUrlsListWithoutParams(Collection<String> urlWithParams)
@@ -148,19 +124,29 @@ public class AndroidWebRequestResourceWrapperTest extends BaseFilterEngineTest
     return list;
   }
 
-  private void testIntercepted(final String preloadUrl, final int resourceId)
+  private void reset()
   {
     preloadMap.clear();
+    request.getUrls().clear();
+    storage.getInterceptedUrls().clear();
+    wrapperListener.getUrlsToResourceId().clear();
+  }
+
+  @Override
+  protected int getUpdateRequestCount()
+  {
+    return request.getUrls().size() + storage.getInterceptedUrls().size();
+  }
+
+  private void testIntercepted(final String preloadUrl, final int resourceId)
+  {
+    reset();
     preloadMap.put(preloadUrl, resourceId);
-
     assertEquals(0, request.getUrls().size());
-
     assertEquals(0, storage.getInterceptedUrls().size());
-
     assertEquals(0, wrapperListener.getUrlsToResourceId().size());
 
     updateSubscriptions();
-    SystemClock.sleep(UPDATE_SUBSCRIPTIONS_WAIT_DELAY_MS);
 
     if (request.getUrls().size() > 0)
     {
@@ -205,18 +191,14 @@ public class AndroidWebRequestResourceWrapperTest extends BaseFilterEngineTest
   {
     final String preloadUrl = AndroidWebRequestResourceWrapper.EASYLIST;
 
-    preloadMap.clear();
+    reset();
     preloadMap.put(preloadUrl, R.raw.easylist);
-
     assertEquals(0, request.getUrls().size());
-
     assertEquals(0, storage.getInterceptedUrls().size());
-
     assertEquals(0, wrapperListener.getUrlsToResourceId().size());
 
     // update #1 -  should be intercepted
     updateSubscriptions();
-    SystemClock.sleep(UPDATE_SUBSCRIPTIONS_WAIT_DELAY_MS);
 
     int requestsCount = request.getUrls().size();
     if (requestsCount > 0)
@@ -237,7 +219,6 @@ public class AndroidWebRequestResourceWrapperTest extends BaseFilterEngineTest
     wrapperListener.getUrlsToResourceId().clear();
 
     updateSubscriptions();
-    SystemClock.sleep(UPDATE_SUBSCRIPTIONS_WAIT_DELAY_MS);
 
     assertTrue(request.getUrls().size() > requestsCount);
     List<String> requestsWithoutParams = getUrlsListWithoutParams(request.getUrls());
@@ -249,15 +230,13 @@ public class AndroidWebRequestResourceWrapperTest extends BaseFilterEngineTest
   private void testNotIntercepted(final String interceptedUrl, final int resourceId,
                                   final String notInterceptedUrl)
   {
-    preloadMap.clear();
+    reset();
     preloadMap.put(interceptedUrl, resourceId);
-
     assertEquals(0, request.getUrls().size());
     assertEquals(0, storage.getInterceptedUrls().size());
     assertEquals(0, wrapperListener.getUrlsToResourceId().size());
 
     updateSubscriptions();
-    SystemClock.sleep(UPDATE_SUBSCRIPTIONS_WAIT_DELAY_MS);
 
     assertEquals(1, request.getUrls().size());
     List<String> requestUrlsWithoutParams = getUrlsListWithoutParams(request.getUrls());
@@ -280,18 +259,14 @@ public class AndroidWebRequestResourceWrapperTest extends BaseFilterEngineTest
   @Test
   public void testInterceptedAll()
   {
-    preloadMap.clear();
+    reset();
     preloadMap.put(AndroidWebRequestResourceWrapper.EASYLIST, R.raw.easylist);
     preloadMap.put(AndroidWebRequestResourceWrapper.ACCEPTABLE_ADS, R.raw.exceptionrules);
-
     assertEquals(0, request.getUrls().size());
-
     assertEquals(0, storage.getInterceptedUrls().size());
-
     assertEquals(0, wrapperListener.getUrlsToResourceId().size());
 
     updateSubscriptions();
-    SystemClock.sleep(UPDATE_SUBSCRIPTIONS_WAIT_DELAY_MS);
 
     assertEquals(0, request.getUrls().size());
     assertEquals(2, storage.getInterceptedUrls().size());

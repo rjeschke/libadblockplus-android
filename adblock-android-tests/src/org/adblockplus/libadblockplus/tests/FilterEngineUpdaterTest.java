@@ -17,16 +17,19 @@
 
 package org.adblockplus.libadblockplus.tests;
 
+import android.os.SystemClock;
+
 import org.adblockplus.libadblockplus.MockUpdateAvailableCallback;
 import org.adblockplus.libadblockplus.NoOpUpdaterCallback;
 import org.adblockplus.libadblockplus.ServerResponse;
 
+import org.adblockplus.libadblockplus.UpdaterTest;
 import org.junit.Test;
 
 public class FilterEngineUpdaterTest extends UpdaterTest
 {
   @Test
-  public void testSetRemoveUpdateAvailableCallback() throws InterruptedException
+  public void testSetRemoveUpdateAvailableCallback()
   {
     mockWebRequest.response.setStatus(ServerResponse.NsStatus.OK);
     mockWebRequest.response.setResponseStatus(200);
@@ -40,14 +43,23 @@ public class FilterEngineUpdaterTest extends UpdaterTest
 
     MockUpdateAvailableCallback mockUpdateAvailableCallback =
       new MockUpdateAvailableCallback(0);
+    NoOpUpdaterCallback noOpUpdater = new NoOpUpdaterCallback();
     filterEngine.setUpdateAvailableCallback(mockUpdateAvailableCallback);
-    filterEngine.forceUpdateCheck(new NoOpUpdaterCallback());
-    Thread.sleep(1000);
+    filterEngine.forceUpdateCheck(noOpUpdater);
+    while (noOpUpdater.getUpdateCount() < 1)
+    {
+      SystemClock.sleep(100);
+    }
+    assertEquals(1, noOpUpdater.getUpdateCount());
     assertEquals(1, mockUpdateAvailableCallback.getTimesCalled());
 
     filterEngine.removeUpdateAvailableCallback();
-    filterEngine.forceUpdateCheck(new NoOpUpdaterCallback());
-    Thread.sleep(1000);
+    filterEngine.forceUpdateCheck(noOpUpdater);
+    while (noOpUpdater.getUpdateCount() < 2)
+    {
+      SystemClock.sleep(100);
+    }
+    assertEquals(2, noOpUpdater.getUpdateCount());
     assertEquals(1, mockUpdateAvailableCallback.getTimesCalled());
   }
 }

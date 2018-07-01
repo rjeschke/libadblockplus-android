@@ -19,11 +19,21 @@ package org.adblockplus.libadblockplus;
 
 public class MockFilterChangeCallback extends FilterChangeCallback
 {
-  private int timesCalled;
+  private volatile int timesCalled;
+  private String checkAction;
+  private String checkKey;
+  private String checkValue;
 
-  public MockFilterChangeCallback(int timesCalled)
+  public MockFilterChangeCallback(String checkAction, String checkKey, String checkValue)
   {
-    this.timesCalled = timesCalled;
+    this.checkAction = checkAction;
+    this.checkKey = checkKey;
+    this.checkValue = checkValue;
+  }
+
+  public void clearCheckValues()
+  {
+    checkAction = null;
   }
 
   public int getTimesCalled()
@@ -34,6 +44,11 @@ public class MockFilterChangeCallback extends FilterChangeCallback
   @Override
   public void filterChangeCallback(String action, JsValue jsValue)
   {
+    if (checkAction != null && (!action.equals(checkAction) ||
+            !jsValue.getProperty(checkKey).asString().equals(checkValue)))
+    {
+      return;
+    }
     timesCalled++;
   }
 }

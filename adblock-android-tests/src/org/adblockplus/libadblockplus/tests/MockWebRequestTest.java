@@ -17,7 +17,10 @@
 
 package org.adblockplus.libadblockplus.tests;
 
+import android.os.SystemClock;
+
 import org.adblockplus.libadblockplus.AdblockPlusException;
+import org.adblockplus.libadblockplus.BaseJsEngineTest;
 import org.adblockplus.libadblockplus.HeaderEntry;
 import org.adblockplus.libadblockplus.ServerResponse;
 import org.adblockplus.libadblockplus.WebRequest;
@@ -29,20 +32,19 @@ import java.util.List;
 
 public class MockWebRequestTest extends BaseJsEngineTest
 {
+  @Override
+  protected void setUp() throws Exception
+  {
+    setWebRequest(new LocalMockWebRequest());
+    super.setUp();
+  }
 
   private class LocalMockWebRequest implements WebRequest
   {
     @Override
     public ServerResponse httpGET(String url, List<HeaderEntry> headers)
     {
-      try
-      {
-        Thread.sleep(50);
-      }
-      catch (InterruptedException e)
-      {
-        throw new RuntimeException(e);
-      }
+      SystemClock.sleep(50);
 
       ServerResponse result = new ServerResponse();
       result.setStatus(ServerResponse.NsStatus.OK);
@@ -57,85 +59,40 @@ public class MockWebRequestTest extends BaseJsEngineTest
     }
   }
 
-  @Override
-  protected WebRequest createWebRequest()
-  {
-    return new LocalMockWebRequest();
-  }
-
   @Test
   public void testBadCall()
   {
-    try
-    {
-      jsEngine.evaluate("_webRequest.GET()");
-      fail();
-    }
-    catch (AdblockPlusException e)
-    {
-      // ignored
-    }
+    final String[] sources =
+      {
+        "_webRequest.GET()", "_webRequest.GET('', {}, function(){})",
+        "_webRequest.GET({toString: false}, {}, function(){})",
+        "_webRequest.GET('http://example.com/', null, function(){})",
+        "_webRequest.GET('http://example.com/', {}, null)",
+        "_webRequest.GET('http://example.com/', {}, function(){}, 0)"
+      };
 
-    try
+    for (String source : sources)
     {
-      jsEngine.evaluate("_webRequest.GET('', {}, function(){})");
-      fail();
-    }
-    catch (AdblockPlusException e)
-    {
-      // ignored
-    }
-
-    try
-    {
-      jsEngine.evaluate("_webRequest.GET({toString: false}, {}, function(){})");
-      fail();
-    }
-    catch (AdblockPlusException e)
-    {
-      // ignored
-    }
-
-    try
-    {
-      jsEngine.evaluate("_webRequest.GET('http://example.com/', null, function(){})");
-      fail();
-    }
-    catch (AdblockPlusException e)
-    {
-      // ignored
-    }
-
-    try
-    {
-      jsEngine.evaluate("_webRequest.GET('http://example.com/', {}, null)");
-      fail();
-    }
-    catch (AdblockPlusException e)
-    {
-      // ignored
-    }
-
-    try
-    {
-      jsEngine.evaluate("_webRequest.GET('http://example.com/', {}, function(){}, 0)");
-      fail();
-    }
-    catch (AdblockPlusException e)
-    {
-      // ignored
+      try
+      {
+        jsEngine.evaluate(source);
+        fail(source);
+      } catch (AdblockPlusException e)
+      {
+        // ignored
+      }
     }
   }
 
   @Test
-  public void testSuccessfulRequest() throws InterruptedException
+  public void testSuccessfulRequest()
   {
     jsEngine.evaluate(
       "let foo = true; _webRequest.GET('http://example.com/', {X: 'Y'}, function(result) {foo = result;} )");
     assertTrue(jsEngine.evaluate("foo").isBoolean());
     assertTrue(jsEngine.evaluate("foo").asBoolean());
 
-    Thread.sleep(200);
+    SystemClock.sleep(200);
 
     assertEquals(
       ServerResponse.NsStatus.OK.getStatusCode(),
@@ -144,5 +101,4 @@ public class MockWebRequestTest extends BaseJsEngineTest
     assertEquals("{\"Foo\":\"Bar\"}",
       jsEngine.evaluate("JSON.stringify(foo.responseHeaders)").asString());
   }
-
 }

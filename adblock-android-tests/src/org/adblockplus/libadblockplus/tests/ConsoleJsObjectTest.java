@@ -17,6 +17,7 @@
 
 package org.adblockplus.libadblockplus.tests;
 
+import org.adblockplus.libadblockplus.BaseJsEngineTest;
 import org.adblockplus.libadblockplus.LogSystem;
 import org.adblockplus.libadblockplus.MockLogSystem;
 
@@ -27,9 +28,11 @@ public class ConsoleJsObjectTest extends BaseJsEngineTest
   protected MockLogSystem mockLogSystem;
 
   @Override
-  protected LogSystem createLogSystem()
+  protected void setUp() throws Exception
   {
-    return mockLogSystem = new MockLogSystem();
+    mockLogSystem = new MockLogSystem();
+    setLogSystem(mockLogSystem);
+    super.setUp();
   }
 
   @Test

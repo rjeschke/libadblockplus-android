@@ -44,7 +44,6 @@ android {
 }
 
 dependencies {
-  androidTestCompile project(path: ':adblock-android', configuration: getAbiFlavor() + "Debug")
   androidTestCompile project(':adblock-android-settings')
   androidTestCompile fileTree(include: ['*.jar'], dir: 'libs')
 

@@ -17,7 +17,10 @@
 
 package org.adblockplus.libadblockplus.tests;
 
-import org.adblockplus.libadblockplus.JsEngine;
+import android.os.SystemClock;
+
+import org.adblockplus.libadblockplus.BaseFilterEngineTest;
+import org.adblockplus.libadblockplus.HeaderEntry;
 import org.adblockplus.libadblockplus.WebRequest;
 import org.adblockplus.libadblockplus.android.AndroidWebRequest;
 import org.adblockplus.libadblockplus.JsValue;
@@ -34,16 +37,37 @@ import java.util.List;
 // FilterEngine.
 public class AndroidWebRequestTest extends BaseFilterEngineTest
 {
-  @Override
-  protected WebRequest createWebRequest()
+  private static class AndroidWebRequestWrapper implements WebRequest
   {
-    return new AndroidWebRequest(true, true);
+    private AndroidWebRequest androidWebRequest = new AndroidWebRequest(true, true);
+    private volatile int requestCount;
+
+    public int getRequestCount()
+    {
+      return requestCount;
+    }
+
+    @Override
+    public ServerResponse httpGET(String url, List<HeaderEntry> headers)
+    {
+      ServerResponse response = androidWebRequest.httpGET(url, headers);
+      requestCount++;
+      return response;
+    }
+  }
+
+  private AndroidWebRequestWrapper webRequestWrapper = new AndroidWebRequestWrapper();
+
+  @Override
+  protected void setUp() throws Exception
+  {
+    setWebRequest(webRequestWrapper);
+    super.setUp();
   }
 
   @Test
   public void testRealWebRequest()
   {
-    JsEngine jsEngine = platform.getJsEngine();
     // This URL should redirect to easylist-downloads.adblockplus.org and we
     // should get the actual filter list back.
     jsEngine.evaluate(
@@ -51,14 +75,7 @@ public class AndroidWebRequestTest extends BaseFilterEngineTest
       "function(result) {foo = result;} )");
     do
     {
-      try
-      {
-        Thread.sleep(200);
-      }
-      catch (InterruptedException e)
-      {
-        throw new RuntimeException(e);
-      }
+      SystemClock.sleep(50);
     } while (jsEngine.evaluate("foo").isUndefined());
 
     String response = jsEngine.evaluate("foo.responseText").asString();
@@ -84,7 +101,6 @@ public class AndroidWebRequestTest extends BaseFilterEngineTest
   @Test
   public void testXMLHttpRequest()
   {
-    JsEngine jsEngine = platform.getJsEngine();
     jsEngine.evaluate(
       "var result;\n" +
       "var request = new XMLHttpRequest();\n" +
@@ -98,14 +114,7 @@ public class AndroidWebRequestTest extends BaseFilterEngineTest
 
     do
     {
-      try
-      {
-        Thread.sleep(200);
-      }
-      catch (InterruptedException e)
-      {
-        throw new RuntimeException(e);
-      }
+      SystemClock.sleep(50);
     } while (jsEngine.evaluate("result").isUndefined());
 
     assertEquals(
@@ -121,9 +130,15 @@ public class AndroidWebRequestTest extends BaseFilterEngineTest
   }
 
   @Test
-  public void testGetElemhideElements() throws MalformedURLException, InterruptedException
+  public void testGetElemhideElements() throws MalformedURLException
   {
-    Thread.sleep(20 * 1000); // wait for the subscription to be downloaded
+    // Wait for Easylist & AA
+    while (webRequestWrapper.getRequestCount() < 2)
+    {
+      SystemClock.sleep(UPDATE_SUBSCRIPTIONS_WAIT_DELAY_MS / UPDATE_SUBSCRIPTIONS_WAIT_CHUNKS);
+    }
+    // A grace period, just in case
+    SystemClock.sleep(UPDATE_SUBSCRIPTIONS_WAIT_DELAY_MS / UPDATE_SUBSCRIPTIONS_WAIT_CHUNKS);
 
     final String url = "www.mobile01.com/somepage.html";
 

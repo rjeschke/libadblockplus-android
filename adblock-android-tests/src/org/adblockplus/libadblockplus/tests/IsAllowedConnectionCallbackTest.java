@@ -17,15 +17,11 @@
 
 package org.adblockplus.libadblockplus.tests;
 
-import android.os.SystemClock;
-
+import org.adblockplus.libadblockplus.BaseFilterEngineTest;
 import org.adblockplus.libadblockplus.HeaderEntry;
 import org.adblockplus.libadblockplus.IsAllowedConnectionCallback;
-import org.adblockplus.libadblockplus.Platform;
 import org.adblockplus.libadblockplus.ServerResponse;
-import org.adblockplus.libadblockplus.Subscription;
-import org.adblockplus.libadblockplus.WebRequest;
-import org.adblockplus.libadblockplus.android.AndroidWebRequest;
+import org.adblockplus.libadblockplus.ThrowingWebRequest;
 import org.junit.Test;
 
 import java.util.LinkedList;
@@ -33,10 +29,10 @@ import java.util.List;
 
 public class IsAllowedConnectionCallbackTest extends BaseFilterEngineTest
 {
-  private static final int UPDATE_SUBSCRIPTIONS_WAIT_DELAY_MS = 5 * 1000; // 5s
-
-  private static final class TestRequest extends AndroidWebRequest
+  private static final class TestRequest extends ThrowingWebRequest
   {
+    private volatile int callCount;
+
     private List<String> urls = new LinkedList<String>();
 
     public List<String> getUrls()
@@ -44,24 +40,24 @@ public class IsAllowedConnectionCallbackTest extends BaseFilterEngineTest
       return urls;
     }
 
+    public int getCallCount() { return this.callCount; }
+
+    public void reset() { this.callCount = 0; }
+
     @Override
     public ServerResponse httpGET(String url, List<HeaderEntry> headers)
     {
       urls.add(url);
+      this.callCount++;
       return super.httpGET(url, headers);
     }
   }
 
   private static final class TestCallback implements IsAllowedConnectionCallback
   {
+    private volatile int callCount;
     private boolean result;
-    private boolean invoked;
-    private String connectionType;
-
-    public boolean isResult()
-    {
-      return result;
-    }
+    private volatile String connectionType;
 
     public void setResult(boolean result)
     {
@@ -75,15 +71,18 @@ public class IsAllowedConnectionCallbackTest extends BaseFilterEngineTest
 
     public boolean isInvoked()
     {
-      return invoked;
+      return this.callCount > 0;
     }
+
+    public int getCallCount() { return this.callCount; }
+
+    public void reset() { this.callCount = 0; }
 
     @Override
     public boolean isConnectionAllowed(String connectionType)
     {
-      this.invoked = true;
       this.connectionType = connectionType;
-
+      this.callCount++;
       return result;
     }
   }
@@ -94,32 +93,24 @@ public class IsAllowedConnectionCallbackTest extends BaseFilterEngineTest
   @Override
   protected void setUp() throws Exception
   {
-    platform = new Platform(createLogSystem(), createWebRequest(),
-        getContext().getFilesDir().getAbsolutePath());
     callback = new TestCallback();
-    platform.setUpFilterEngine(callback);
-    filterEngine = platform.getFilterEngine();
+    request = new TestRequest();
+    setIsAllowedConnectionCallback(callback);
+    setWebRequest(request);
+    super.setUp();
   }
 
   @Override
-  protected WebRequest createWebRequest()
+  protected int getUpdateRequestCount()
   {
-    return request = new TestRequest();
+    return callback.getCallCount() + request.getCallCount();
   }
 
-  private void updateSubscriptions()
+  private void setResult(boolean result)
   {
-    for (final Subscription s : this.filterEngine.getListedSubscriptions())
-    {
-      try
-      {
-        s.updateFilters();
-      }
-      finally
-      {
-        s.dispose();
-      }
-    }
+    callback.reset();
+    request.reset();
+    callback.setResult(result);
   }
 
   @Test
@@ -127,13 +118,11 @@ public class IsAllowedConnectionCallbackTest extends BaseFilterEngineTest
   {
     final String allowedConnectionType = "wifi1";
     filterEngine.setAllowedConnectionType(allowedConnectionType);
-    callback.setResult(true);
 
+    setResult(true);
     assertEquals(0, request.getUrls().size());
-    assertFalse(callback.isInvoked());
 
     updateSubscriptions();
-    SystemClock.sleep(UPDATE_SUBSCRIPTIONS_WAIT_DELAY_MS);
 
     assertTrue(callback.isInvoked());
     assertNotNull(callback.getConnectionType());
@@ -148,11 +137,10 @@ public class IsAllowedConnectionCallbackTest extends BaseFilterEngineTest
     final String allowedConnectionType = "wifi2";
     filterEngine.setAllowedConnectionType(allowedConnectionType);
 
-    callback.setResult(false);
+    setResult(false);
     assertEquals(0, request.getUrls().size());
 
     updateSubscriptions();
-    SystemClock.sleep(UPDATE_SUBSCRIPTIONS_WAIT_DELAY_MS);
 
     assertTrue(callback.isInvoked());
     assertNotNull(callback.getConnectionType());
