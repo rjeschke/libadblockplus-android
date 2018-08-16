@@ -53,7 +53,7 @@ public class FilterEngineTest extends BaseFilterEngineTest
   {
     while (filterEngine.getListedFilters().size() > 0)
     {
-      int prev =  filterEngine.getListedFilters().size();
+      int prev = filterEngine.getListedFilters().size();
       filterEngine.getListedFilters().get(0).removeFromList();
       if (prev == filterEngine.getListedFilters().size())
       {
